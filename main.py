@@ -1,0 +1,212 @@
+import filecmp
+import sys
+import platform
+import subprocess
+import os
+import shutil
+
+from PyQt5.QtGui import QFont
+
+import info
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QListWidget, QWidget
+from WindowUI import Ui_MainWindow
+
+
+class MainWindow(QMainWindow, Ui_MainWindow):
+	def showAbout(self):
+		QMessageBox.about(self, "Code Checker", info.ABOUT)
+
+	def addFiles(self, listWidget: QListWidget):  # Add file into corresponding list
+		def add():
+			files, _ = QFileDialog.getOpenFileNames(self, "选择文件", "./")  # Let user select and open files
+			for file in files:
+				if listWidget is self.codeList:  # Source code file
+					self.cnt_code += 1
+					if file in self.codeFiles:  # File is already added
+						QMessageBox.information(self, "重复文件", info.REPEAT_FILE, QMessageBox.Yes)
+						continue
+					self.codeFiles.add(file)
+					listWidget.addItem(f'{self.cnt_code}. ' + file)
+				elif listWidget is self.dataList:  # Date generator file
+					self.cnt_data += 1
+					if file in self.dataFiles:
+						QMessageBox.information(self, "重复文件", info.REPEAT_FILE, QMessageBox.Yes)
+						continue
+					self.dataFiles.add(file)
+					listWidget.addItem(f'{self.cnt_data}. ' + file)
+		return add
+
+	def removeFiles(self, listWidget: QListWidget):
+		def remove():
+			selectedFiles = listWidget.selectedItems()
+			for file in selectedFiles:
+				listWidget.takeItem(listWidget.row(file))
+				filePath = file.text().split('. ')[1]
+				if listWidget is self.codeList:
+					self.codeFiles.remove(filePath)
+				elif listWidget is self.dataList:
+					self.dataFiles.remove(filePath)
+		return remove
+
+	def getExtension(self, string):
+		return string.split('.')[-1]
+
+	def addProcessInfo(self, info):
+		self.infoText.append(info)
+		QApplication.processEvents()  # Refresh the window
+
+	def setAllButtons(self, enable):
+		self.startButton.setEnabled(enable)
+		self.addCode.setEnabled(enable)
+		self.addData.setEnabled(enable)
+		self.removeCode.setEnabled(enable)
+		self.removeData.setEnabled(enable)
+
+	def generateData(self, idData, data):
+		# Generate data
+		self.addProcessInfo(f"Checking on data {idData}...")
+		self.addProcessInfo(f"\t-Generating data {idData}")
+		data_extension = self.getExtension(data)
+		if data_extension == 'py':  # Python
+			dataStatus = subprocess.call("python3 " + data + " > " + self.data_folder_path + "/data.in", shell=True)
+		elif data_extension in ['c', 'cpp']:  # C/C++
+			compiler = 'gcc' if data_extension == 'c' else 'g++'
+			exe_suffix = "exe" if platform.system() == 'Windows' else ""
+			dataStatus = subprocess.call(compiler + " " + data + " -o " + self.data_folder_path + "/data" + exe_suffix,
+			                             shell=True)
+			if dataStatus == 0:
+				dataStatus = subprocess.call(
+					self.data_folder_path + "/data" + exe_suffix + " > " + self.data_folder_path + "/data.in",
+					shell=True)
+		elif data_extension == 'in':  # text file (.in)
+			dataStatus = 0
+			shutil.copy(data, self.data_folder_path + "/data.in")
+		else:
+			QMessageBox.critical(self, "错误", info.FILE_ERR)
+			return 1
+		if dataStatus != 0:
+			QMessageBox.critical(self, "错误", info.RE(dataStatus))
+			return 1
+		self.addProcessInfo(f"\t-Data{idData} generated.")
+		return 0
+
+	def runCode(self, idCode, code):
+		self.addProcessInfo(f"\tRunning code {idCode}...")
+		code_extension = self.getExtension(code)
+		if code_extension == 'py':  # Python
+			codeStatus = subprocess.call("python3 " + code + " > " + self.out_folder_path + f"/out{idCode}.out",
+			                             shell=True)
+		elif code_extension in ['c', 'cpp']:  # C/C++
+			compiler = 'gcc' if code_extension == 'c' else 'g++'
+			exe_suffix = "exe" if platform.system() == 'Windows' else ""
+			codeStatus = subprocess.call(
+				compiler + " " + code + " -o " + self.out_folder_path + f"/code{idCode}" + exe_suffix,
+				shell=True)
+			if codeStatus == 0:
+				codeStatus = subprocess.call(
+					self.out_folder_path + f"/code{idCode}" + exe_suffix + " > " + self.out_folder_path + f"/out{idCode}.out",
+					shell=True)
+		else:
+			QMessageBox.critical(self, "错误", info.FILE_ERR)
+			return 1
+
+		if codeStatus != 0:
+			QMessageBox.critical(self, "错误", info.RE(codeStatus))
+			return 1
+		return 0
+
+	def compareFiles(self, idData):
+		files = []
+		for idOut in range(len(self.codeFiles)):
+			files.append(self.out_folder_path + f"/out{idOut + 1}.out")
+		match = True
+		for i in range(1, len(files)):
+			if not filecmp.cmp(files[i], files[i - 1]):
+				match = False
+		if match:
+			self.addProcessInfo(f"All results match for data{idData + 1}")
+		else:
+			QMessageBox.critical(self, "糟糕", "拍不上了!!!")
+			self.addProcessInfo("Mismatches occurred while comparing.")
+			return 1
+		return 0
+
+	def checkCode(self):
+		self.setAllButtons(False)
+		self.infoText.clear()
+		self.addProcessInfo("Start Checking. Creating folder...")
+
+		# Create Folders
+		if not os.path.exists(self.folder_path):
+			os.mkdir(self.folder_path)
+		if not os.path.exists(self.data_folder_path):
+			os.mkdir(self.data_folder_path)
+		if not os.path.exists(self.out_folder_path):
+			os.mkdir(self.out_folder_path)
+		self.addProcessInfo("Done.")
+
+		# Check
+		for idData, data in enumerate(self.dataFiles):
+			dataStatus = self.generateData(idData + 1, data)
+			if dataStatus != 0:
+				break
+
+			# Run codes
+			self.addProcessInfo(f"Running code with data{idData + 1}")
+			fail = False
+			for idCode, code in enumerate(self.codeFiles):
+				codeStatus = self.runCode(idCode + 1, code)
+				if codeStatus != 0:
+					fail = True
+					break
+			if fail:
+				break
+
+			# Compare .out files
+			match = self.compareFiles(idData)
+			if match != 0:
+				break
+
+		# All work done
+		self.addProcessInfo("All Checking Process Done.")
+		self.setAllButtons(True)
+
+	def __init__(self, parent=None):
+		super().__init__(parent)
+		self.codeFiles = set()
+		self.dataFiles = set()
+		self.setupUi(self)
+
+		# About menu action
+		self.actionAbout.triggered.connect(self.showAbout)
+
+		# Folder paths
+		self.folder_path = "./check"
+		self.data_folder_path = self.folder_path + "/data"
+		self.out_folder_path = self.folder_path + "/out"
+
+		# Lists action
+		self.cnt_data = 0
+		self.cnt_code = 0
+
+		self.addCode.clicked.connect(self.addFiles(self.codeList))
+		self.removeCode.clicked.connect(self.removeFiles(self.codeList))
+
+		self.addData.clicked.connect(self.addFiles(self.dataList))
+		self.removeData.clicked.connect(self.removeFiles(self.dataList))
+
+		# Check button
+		self.startButton.clicked.connect(self.checkCode)
+
+		# Set infoText font
+		if platform.system() == 'Linux':
+			self.infoText.setFont(QFont("Noto Sans", 12, QFont.Medium))
+		elif platform.system() == 'Windows':
+			self.infoText.setFont(QFont("Microsoft YaHei", 12, QFont.Medium))
+
+
+if __name__ == "__main__":
+	app = QApplication(sys.argv)
+	window = MainWindow()
+	window.show()
+	sys.exit(app.exec_())
