@@ -133,6 +133,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		return 0
 
 	def checkCode(self):
+		if self.checkTime.value() not in range(0, 101):
+			QMessageBox.Warning(self, "你很危险啊!!!", "对拍次数超出范围")
+			return
 		self.setAllButtons(False)
 		self.infoText.clear()
 		self.addProcessInfo("Start Checking. Creating folder...")
@@ -147,28 +150,30 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		self.addProcessInfo("Done.")
 
 		# Check
-		for idData, data in enumerate(self.dataFiles):
-			dataStatus = self.generateData(idData + 1, data)
-			if dataStatus != 0:
-				break
-
-			# Run codes
-			self.addProcessInfo(f"Running code with data{idData + 1}")
-			fail = False
-			for idCode, code in enumerate(self.codeFiles):
-				codeStatus = self.runCode(idCode + 1, code)
-				if codeStatus != 0:
-					fail = True
+		count = self.checkTime.value()
+		for _ in range(count):
+			for idData, data in enumerate(self.dataFiles):
+				dataStatus = self.generateData(idData + 1, data)
+				if dataStatus != 0:
 					break
-			if fail:
-				break
-			self.addProcessInfo("Output generated.")
 
-			# Compare .out files
-			# time.sleep(0.5)
-			match = self.compareFiles(idData)
-			if match != 0:
-				break
+				# Run codes
+				self.addProcessInfo(f"Running code with data{idData + 1}")
+				fail = False
+				for idCode, code in enumerate(self.codeFiles):
+					codeStatus = self.runCode(idCode + 1, code)
+					if codeStatus != 0:
+						fail = True
+						break
+				if fail:
+					break
+				self.addProcessInfo("Output generated.")
+
+				# Compare .out files
+				# time.sleep(0.5)
+				match = self.compareFiles(idData)
+				if match != 0:
+					break
 
 		# All work done
 		self.addProcessInfo("All Checking Process Done.")

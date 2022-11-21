@@ -285,7 +285,7 @@
        </widget>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="5,2,5">
+       <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="5,3,2,5">
         <item>
          <spacer name="horizontalSpacer">
           <property name="orientation">
@@ -298,6 +298,13 @@
            </size>
           </property>
          </spacer>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="checkTime">
+          <property name="maximum">
+           <number>100</number>
+          </property>
+         </widget>
         </item>
         <item>
          <widget class="QPushButton" name="startButton">
