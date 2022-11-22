@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>拍</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>img/checkmark.png</normaloff>img/checkmark.png</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <property name="sizePolicy">
     <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
