@@ -65,6 +65,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		self.addProcessInfo(f"Checking on data {idData}...")
 		self.addProcessInfo(f"\t-Generating data {idData}")
 		data_extension = self.getExtension(data)
+		file = open(self.data_folder_path + "/data.in", "w")
+		file.close()
 		if data_extension == 'py':  # Python
 			dataStatus = subprocess.call("python " + data + " > " + self.data_folder_path + "/data.in", shell=True)
 		elif data_extension in ['c', 'cpp']:  # C/C++
@@ -91,6 +93,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 	def runCode(self, idCode, code):
 		self.addProcessInfo(f"\tRunning code {idCode}...")
 		code_extension = self.getExtension(code)
+		file = open(self.out_folder_path + f"/out{idCode}.out", "w")
+		file.close()
 		data = self.data_folder_path+'/data.in'
 		if code_extension == 'py':  # Python
 			codeStatus = subprocess.call("python " + code + " < " + data + " > " + self.out_folder_path + f"/out{idCode}.out", shell=True)
@@ -121,8 +125,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		match = True
 		for i in range(1, len(files)):
 			if not filecmp.cmp(files[i], files[i - 1]):
-				print(files[i-1], files[i])
-				print(filecmp.cmp(files[i], files[i - 1]))
+				# print(files[i-1], files[i])
+				# print(filecmp.cmp(files[i], files[i - 1]))
 				match = False
 		if match:
 			self.addProcessInfo(f"All results match for data{idData + 1}")
@@ -152,6 +156,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 		# Check
 		count = self.checkTime.value()
 		for _ in range(count):
+			flag = True
 			for idData, data in enumerate(self.dataFiles):
 				dataStatus = self.generateData(idData + 1, data)
 				if dataStatus != 0:
@@ -173,7 +178,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 				# time.sleep(0.5)
 				match = self.compareFiles(idData)
 				if match != 0:
+					flag = False
 					break
+			if not flag:
+				break
 
 		# All work done
 		self.addProcessInfo("All Checking Process Done.")
